@@ -1,11 +1,13 @@
 package keeper
 
 import (
-	"github.com/CosmWasm/wasmd/x/wasm/types"
+	"testing"
+
 	"github.com/stretchr/testify/require"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	dbm "github.com/tendermint/tm-db"
-	"testing"
+
+	"github.com/CosmWasm/wasmd/x/wasm/types"
 )
 
 func BenchmarkExecution(b *testing.B) {

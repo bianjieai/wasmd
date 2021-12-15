@@ -3,8 +3,10 @@ package keeper
 import (
 	"encoding/json"
 	"fmt"
+
+	channeltypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
+
 	"github.com/CosmWasm/wasmd/x/wasm/types"
-	channeltypes "github.com/cosmos/ibc-go/modules/core/04-channel/types"
 
 	wasmvmtypes "github.com/CosmWasm/wasmvm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"

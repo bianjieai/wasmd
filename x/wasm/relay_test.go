@@ -2,23 +2,25 @@ package wasm_test
 
 import (
 	"encoding/json"
+	"strconv"
 	"testing"
 	"time"
+
+	wasmvm "github.com/CosmWasm/wasmvm"
+	wasmvmtypes "github.com/CosmWasm/wasmvm/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	ibctransfertypes "github.com/cosmos/ibc-go/v2/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v2/modules/core/02-client/types"
+	channeltypes "github.com/cosmos/ibc-go/v2/modules/core/04-channel/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	wasmd "github.com/CosmWasm/wasmd/app"
 	"github.com/CosmWasm/wasmd/x/wasm/ibctesting"
 	wasmkeeper "github.com/CosmWasm/wasmd/x/wasm/keeper"
 	wasmtesting "github.com/CosmWasm/wasmd/x/wasm/keeper/wasmtesting"
 	"github.com/CosmWasm/wasmd/x/wasm/types"
-	wasmvm "github.com/CosmWasm/wasmvm"
-	wasmvmtypes "github.com/CosmWasm/wasmvm/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	ibctransfertypes "github.com/cosmos/ibc-go/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/modules/core/02-client/types"
-	channeltypes "github.com/cosmos/ibc-go/modules/core/04-channel/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestFromIBCTransferToContract(t *testing.T) {
@@ -65,7 +67,7 @@ func TestFromIBCTransferToContract(t *testing.T) {
 
 	// when relay to chain B and handle Ack on chain A
 	fungibleTokenPacket := ibctransfertypes.NewFungibleTokenPacketData(
-		coinToSendToB.Denom, coinToSendToB.Amount.Uint64(), chainA.SenderAccount.GetAddress().String(),
+		coinToSendToB.Denom, string(coinToSendToB.Amount.Uint64()), chainA.SenderAccount.GetAddress().String(),
 		chainB.SenderAccount.GetAddress().String())
 	packet := channeltypes.NewPacket(fungibleTokenPacket.GetBytes(), 1,
 		path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID,
@@ -254,7 +256,7 @@ func TestContractCanEmulateIBCTransferMessageWithTimeout(t *testing.T) {
 	timeoutTime := chainB.LastHeader.Header.Time.Add(time.Nanosecond)
 	timeout := uint64(timeoutTime.UnixNano())
 
-	// custom payload data to be transfered into a proper ICS20 ibc packet
+	// custom payload data to be transferred into a proper ICS20 ibc packet
 	startMsg := &types.MsgExecuteContract{
 		Sender:   chainA.SenderAccount.GetAddress().String(),
 		Contract: myContractAddr.String(),
@@ -281,7 +283,7 @@ func TestContractCanEmulateIBCTransferMessageWithTimeout(t *testing.T) {
 
 	// timeout packet send (by the relayer)
 	fungibleTokenPacketData := ibctransfertypes.NewFungibleTokenPacketData(
-		coinToSendToB.Denom, coinToSendToB.Amount.Uint64(), myContractAddr.String(), receiverAddress.String())
+		coinToSendToB.Denom, string(coinToSendToB.Amount.Uint64()), myContractAddr.String(), receiverAddress.String())
 	var timeoutHeight clienttypes.Height
 	packet = channeltypes.NewPacket(fungibleTokenPacketData.GetBytes(), 1,
 		path.EndpointA.ChannelConfig.PortID, path.EndpointA.ChannelID,
@@ -402,7 +404,7 @@ func (s *sendEmulatedIBCTransferContract) Execute(code wasmvm.Checksum, env wasm
 	}
 
 	dataPacket := ibctransfertypes.NewFungibleTokenPacketData(
-		in.CoinsToSend.Denom, in.CoinsToSend.Amount.Uint64(), s.contractAddr, in.ReceiverAddr,
+		in.CoinsToSend.Denom, string(in.CoinsToSend.Amount.Uint64()), s.contractAddr, in.ReceiverAddr,
 	)
 	if err := dataPacket.ValidateBasic(); err != nil {
 		return nil, 0, err
@@ -423,11 +425,12 @@ func (c *sendEmulatedIBCTransferContract) IBCPacketTimeout(codeID wasmvm.Checksu
 	if err := ibctransfertypes.ModuleCdc.UnmarshalJSON(packet.Packet.Data, &data); err != nil {
 		return nil, 0, err
 	}
+	intNum, _ := strconv.Atoi(data.Amount)
 
 	returnTokens := &wasmvmtypes.BankMsg{
 		Send: &wasmvmtypes.SendMsg{
 			ToAddress: data.Sender,
-			Amount:    wasmvmtypes.Coins{wasmvmtypes.NewCoin(data.Amount, data.Denom)},
+			Amount:    wasmvmtypes.Coins{wasmvmtypes.NewCoin(uint64(intNum), data.Denom)},
 		}}
 
 	return &wasmvmtypes.IBCBasicResponse{Messages: []wasmvmtypes.SubMsg{{ReplyOn: wasmvmtypes.ReplyNever, Msg: wasmvmtypes.CosmosMsg{Bank: returnTokens}}}}, 0, nil
